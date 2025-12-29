@@ -86,28 +86,124 @@ if [ ! -d "$TARGET_DIR" ]; then
 fi
 
 # Check if Claude Code is installed
-# Try to find claude command in common locations
+# Enhanced path detection with multiple fallback strategies
 CLAUDE_PATH=""
+
+# Function to check if a path contains claude and is executable
+check_claude_path() {
+    if [ -f "$1" ] && [ -x "$1" ]; then
+        CLAUDE_PATH="$1"
+        return 0
+    fi
+    return 1
+}
+
+# Function to find all node versions in nvm
+find_nvm_claude() {
+    if [ -d "$HOME/.nvm/versions/node" ]; then
+        # Find the latest node version's bin directory
+        LATEST_NODE=$(ls -t "$HOME/.nvm/versions/node/" 2>/dev/null | head -1)
+        if [ -n "$LATEST_NODE" ]; then
+            check_claude_path "$HOME/.nvm/versions/node/$LATEST_NODE/bin/claude" && return 0
+        fi
+        # Also check all versions in case latest doesn't have it
+        for node_version in "$HOME/.nvm/versions/node/"*; do
+            if [ -d "$node_version" ]; then
+                check_claude_path "$node_version/bin/claude" && return 0
+            fi
+        done
+    fi
+    return 1
+}
+
+# Function to dynamically detect package manager bin directories
+detect_package_manager_bins() {
+    # Try npm global prefix
+    if command -v npm >/dev/null 2>&1; then
+        NPM_PREFIX=$(npm config get prefix 2>/dev/null)
+        if [ -n "$NPM_PREFIX" ] && [ -d "$NPM_PREFIX/bin" ]; then
+            check_claude_path "$NPM_PREFIX/bin/claude" && return 0
+        fi
+    fi
+
+    # Try yarn global bin
+    if command -v yarn >/dev/null 2>&1; then
+        YARN_BIN=$(yarn global bin 2>/dev/null)
+        if [ -n "$YARN_BIN" ] && [ -d "$YARN_BIN" ]; then
+            check_claude_path "$YARN_BIN/claude" && return 0
+        fi
+    fi
+
+    # Try pnpm bin
+    if command -v pnpm >/dev/null 2>&1; then
+        PNPM_BIN=$(pnpm bin -g 2>/dev/null)
+        if [ -n "$PNPM_BIN" ] && [ -d "$PNPM_BIN" ]; then
+            check_claude_path "$PNPM_BIN/claude" && return 0
+        fi
+    fi
+
+    return 1
+}
+
+# Priority 1: Check if claude is already in PATH
 if command -v claude >/dev/null 2>&1; then
     CLAUDE_PATH=$(command -v claude)
-else
-    # Try common installation locations
-    for path in "$HOME/Library/pnpm/claude" "$HOME/.npm-global/bin/claude" "$HOME/.npm/bin/claude" "$HOME/.local/bin/claude" "/usr/local/bin/claude" "/opt/homebrew/bin/claude"; do
-        if [ -f "$path" ] && [ -x "$path" ]; then
-            CLAUDE_PATH="$path"
-            break
-        fi
+fi
+
+# Priority 2: If not found in PATH, try dynamic package manager detection
+if [ -z "$CLAUDE_PATH" ]; then
+    detect_package_manager_bins
+fi
+
+# Priority 3: Check nvm installations
+if [ -z "$CLAUDE_PATH" ]; then
+    find_nvm_claude
+fi
+
+# Priority 4: Check all known static paths (ordered by likelihood)
+if [ -z "$CLAUDE_PATH" ]; then
+    # Common user-local installations
+    for path in "$HOME/.local/bin/claude" "$HOME/.npm-global/bin/claude" "$HOME/.npm/bin/claude" "$HOME/Library/pnpm/claude" "$HOME/.yarn/bin/claude" "/usr/local/bin/claude" "/opt/homebrew/bin/claude" "/usr/bin/claude" "$HOME/.cargo/bin/claude"
+    do
+        check_claude_path "$path" && break
     done
 fi
 
+# If still not found, provide helpful error message
 if [ -z "$CLAUDE_PATH" ]; then
-    osascript -e "display alert \"Claude Code Not Installed\" message \"Please check if Claude Code CLI is properly installed.
+    # Generate diagnostic information
+    DIAGNOSTIC="Claude Code CLI Not Found
 
-Try running: npm install -g claude
+Searched in the following locations:
+• Current PATH
+• npm global bin directory
+• yarn global bin directory
+• pnpm global bin directory
+• All nvm Node.js versions
+• ~/.local/bin
+• ~/.npm-global/bin
+• ~/.npm/bin
+• ~/.yarn/bin
+• ~/Library/pnpm
+• /usr/local/bin
+• /opt/homebrew/bin
+• /usr/bin
 
-Or check the path with: command -v claude\""
+How to fix:
+1. Install Claude Code CLI:
+   npm install -g claude
+
+2. Or check if it's installed:
+   command -v claude
+
+3. Or verify npm global prefix:
+   npm config get prefix"
+
+    osascript -e "display alert \"Claude Code Not Found\" message \"$DIAGNOSTIC\""
     exit 1
 fi
+
+echo "✅ Found Claude Code at: $CLAUDE_PATH"
 
 # 保存当前目录，供下次使用
 echo "$TARGET_DIR" > "$LAST_DIR_FILE"

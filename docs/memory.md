@@ -226,6 +226,40 @@ The fastest Claude Code launcher on macOS - focus on one-click launch, achieve u
   - Clear principles to guide project evolution
   - Reduced cognitive load for decision making
 
+### v1.6.2 (2025-12-29) - Enhanced Path Detection Bug Fix 🔧
+- **Critical Bug Fix**: Multiple users reported "Claude Code not found" errors
+- **Root Cause Analysis**:
+  - Non-interactive shell environments don't load user shell configs (.zshrc, .bashrc)
+  - Hardcoded path list was incomplete, missing common installation locations
+  - No dynamic detection for package manager bin directories
+  - Missing npm/yarn/pnpm prefix detection
+- **Enhanced Path Detection Strategy**:
+  - **Priority 1**: Check if claude is in current PATH (fastest)
+  - **Priority 2**: Dynamic package manager detection
+    - `npm config get prefix` → get npm global bin directory
+    - `yarn global bin` → get yarn global bin directory
+    - `pnpm bin -g` → get pnpm global bin directory
+  - **Priority 3**: NVM installation detection
+    - Check latest Node.js version in nvm
+    - Fallback to all installed nvm Node.js versions
+  - **Priority 4**: Comprehensive static path list
+    - User-local: `~/.local/bin`, `~/.npm-global/bin`, `~/.npm/bin`, `~/.yarn/bin`, `~/Library/pnpm`
+    - System-level: `/usr/local/bin`, `/opt/homebrew/bin`, `/usr/bin`, `~/.cargo/bin`
+- **New Helper Functions**:
+  - `check_claude_path()` - Validate if path exists and is executable
+  - `find_nvm_claude()` - Search all nvm Node.js installations
+  - `detect_package_manager_bins()` - Dynamic package manager bin detection
+- **Improved Error Messages**:
+  - List all searched locations in error dialog
+  - Provide concrete troubleshooting steps
+  - Include diagnostic commands for users
+- **Files Modified**:
+  - `Claude Code Now.app/Contents/MacOS/ClaudeCodeLauncher` (lines 88-216)
+  - `macos/claude-code-now.sh` (lines 68-193)
+- **Testing**: ✅ Verified detection works for `~/.local/bin/claude`
+- **Impact**: Should resolve majority of "Claude Code not found" issues
+- **Product Philosophy**: Continue improving reliability while maintaining simplicity
+
 ### v1.6.0 (2025-12-28) - The Renaissance Release 🚀
 - **Major Version Update**: 1.2.2 → 1.6.0 (Significant architectural changes)
 - **Strategic Pivot**: Complete return to core value - "Fastest Claude Code Launcher"
