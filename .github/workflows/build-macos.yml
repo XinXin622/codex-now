@@ -126,6 +126,11 @@ jobs:
       contents: write
     
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
@@ -134,35 +139,53 @@ jobs:
       
       - name: List artifacts
         run: find dist -type f
+
+      - name: Generate release notes
+        id: notes
+        run: |
+          set -euo pipefail
+          CURRENT_TAG="${GITHUB_REF_NAME}"
+          PREV_TAG="$(git describe --tags --abbrev=0 "${CURRENT_TAG}^" 2>/dev/null || true)"
+          if [ -n "$PREV_TAG" ]; then
+            RANGE="${PREV_TAG}..${CURRENT_TAG}"
+          else
+            RANGE="${CURRENT_TAG}"
+          fi
+          {
+            echo "## 🖥 Claude Code Now & Codex Now ${CURRENT_TAG}"
+            echo
+            echo "### ⚡ Quick Install"
+            echo
+            echo '```bash'
+            echo 'curl -fsSL https://raw.githubusercontent.com/XinXin622/claude-code-now/main/install.sh | bash'
+            echo '```'
+            echo
+            echo "### 📥 Manual Download"
+            echo
+            echo "| 应用 | 下载 |"
+            echo "|------|------|"
+            echo "| Claude Code Now | \`Claude.Code.Now.${CURRENT_TAG}.macOS.zip\` |"
+            echo "| Codex Now | \`Codex.Now.${CURRENT_TAG}.macOS.zip\` |"
+            echo
+            echo "### 📝 Changes"
+            git log --pretty=format:"- %s (%h)" ${RANGE} || true
+            echo
+            echo
+            echo "### 📦 安装"
+            echo
+            echo "1. 下载对应的 \`.zip\` 文件"
+            echo "2. 解压并拖动 \`.app\` 到 Applications 文件夹"
+            echo "3. 开始使用！🚀"
+            echo
+            echo "---"
+            echo "*Built automatically by GitHub Actions*"
+          } > release_body.md
       
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           name: "🖥 Claude Code Now & Codex Now ${{ github.ref_name }}"
-          body: |
-            ## 🖥 Claude Code Now & Codex Now ${{ github.ref_name }}
-            
-            ### ⚡ Quick Install
-            
-            ```bash
-            curl -fsSL https://raw.githubusercontent.com/XinXin622/claude-code-now/main/install.sh | bash
-            ```
-            
-            ### 📥 Manual Download
-            
-            | 应用 | 下载 |
-            |------|------|
-            | Claude Code Now | `Claude.Code.Now.${{ github.ref_name }}.macOS.zip` |
-            | Codex Now | `Codex.Now.${{ github.ref_name }}.macOS.zip` |
-            
-            ### 📦 安装
-            
-            1. 下载对应的 `.zip` 文件
-            2. 解压并拖动 `.app` 到 Applications 文件夹
-            3. 开始使用！🚀
-            
-            ---
-            *Built automatically by GitHub Actions*
+          body_path: release_body.md
           files: |
             dist/**/*.zip
           draft: false
