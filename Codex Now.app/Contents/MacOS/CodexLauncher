@@ -130,7 +130,7 @@ case "$CHOICE" in
 cd '$TARGET_DIR'
 
 # 执行 codex
-codex --yolo
+codex --dangerously-bypass-approvals-and-sandbox
 
 # 保持终端打开
 exec zsh
@@ -157,9 +157,9 @@ SCRIPT
 tell application "Terminal"
     activate
     if (count of windows) = 0 then
-        do script "cd '$TARGET_DIR' && codex --yolo"
+        do script "cd '$TARGET_DIR' && codex --dangerously-bypass-approvals-and-sandbox"
     else
-        do script "cd '$TARGET_DIR' && codex --yolo" in front window
+        do script "cd '$TARGET_DIR' && codex --dangerously-bypass-approvals-and-sandbox" in front window
     end if
     set custom title of front window to "$DIR_NAME"
     set frontmost to true
